@@ -138,6 +138,7 @@ func (api *RESTAPI) GetMission(w http.ResponseWriter, r *http.Request) {
 		CompletedAgents:  mission.CompletedAgents,
 		FailedAgents:     mission.FailedAgents,
 		TotalActions:     mission.TotalActions,
+		TotalErrors:      mission.TotalErrors,
 		AverageLatencyMS: mission.AverageLatencyMS,
 		ErrorRatePercent: calculateErrorRate(mission),
 	}

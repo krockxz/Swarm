@@ -23,14 +23,14 @@ export function MissionDetails({ mission, summary }: MissionDetailsProps) {
       {/* Header */}
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <CardTitle>{mission.name}</CardTitle>
-              <CardDescription className="break-all">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1 min-w-0">
+              <CardTitle className="truncate">{mission.name}</CardTitle>
+              <CardDescription className="truncate">
                 {mission.target_url}
               </CardDescription>
             </div>
-            <Badge variant={mission.status === "running" ? "default" : "secondary"}>
+            <Badge variant={mission.status === "running" ? "default" : "secondary"} className="shrink-0">
               {mission.status}
             </Badge>
           </div>

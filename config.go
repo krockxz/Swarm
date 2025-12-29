@@ -134,6 +134,7 @@ type SummaryEvent struct {
 	CompletedAgents  int     `json:"completed_agents"`
 	FailedAgents     int     `json:"failed_agents"`
 	TotalActions     int     `json:"total_actions"`
+	TotalErrors      int     `json:"total_errors"`
 	AverageLatencyMS int64   `json:"average_latency_ms"`
 	ErrorRatePercent float64 `json:"error_rate_percent"`
 }

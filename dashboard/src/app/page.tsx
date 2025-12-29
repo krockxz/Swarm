@@ -134,7 +134,7 @@ export default function HomePage() {
         ) : (
           <div className="grid h-full grid-cols-12 gap-4">
             {/* Mission List */}
-            <div className="col-span-3">
+            <div className="col-span-12 md:col-span-3 lg:col-span-3">
               <MissionList
                 missions={missionsData.missions}
                 selectedMissionId={selectedMissionId}
@@ -143,7 +143,7 @@ export default function HomePage() {
             </div>
 
             {/* Mission Details / Agents */}
-            <div className="col-span-3">
+            <div className="col-span-12 md:col-span-4 lg:col-span-5">
               {selectedMission ? (
                 <Tabs defaultValue="mission" className="h-full">
                   <TabsList className="w-full">
@@ -154,7 +154,7 @@ export default function HomePage() {
                       Agents
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="mission" className="h-[calc(100vh-350px)] overflow-y-auto">
+                  <TabsContent value="mission" className="h-[calc(100vh-200px)] overflow-y-auto">
                     {missionStatus ? (
                       <MissionDetails
                         mission={missionStatus.mission}
@@ -164,7 +164,7 @@ export default function HomePage() {
                       <Loader2 className="h-8 w-8 animate-spin" />
                     )}
                   </TabsContent>
-                  <TabsContent value="agents" className="h-[calc(100vh-350px)] overflow-hidden">
+                  <TabsContent value="agents" className="h-[calc(100vh-200px)] overflow-hidden">
                     <AgentList
                       agents={missionStatus?.agent_states ?? []}
                       selectedAgentId={selectedAgentId}
@@ -180,7 +180,7 @@ export default function HomePage() {
             </div>
 
             {/* Agent Details / Events */}
-            <div className="col-span-6">
+            <div className="col-span-12 md:col-span-5 lg:col-span-4">
               {selectedAgent ? (
                 <div className="h-[calc(100vh-150px)] overflow-y-auto">
                   <AgentDetails agent={selectedAgent} />

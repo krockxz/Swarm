@@ -106,6 +106,7 @@ export interface SummaryEvent {
   completed_agents: number;
   failed_agents: number;
   total_actions: number;
+  total_errors: number;
   average_latency_ms: number;
   error_rate_percent: number;
 }

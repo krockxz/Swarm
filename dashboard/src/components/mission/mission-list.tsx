@@ -44,12 +44,11 @@ export function MissionList({
                 <button
                   key={mission.id}
                   onClick={() => onSelectMission(mission.id)}
-                  className={`w-full rounded-lg border p-3 text-left transition-colors hover:bg-accent ${
-                    selectedMissionId === mission.id ? "border-primary bg-accent" : ""
-                  }`}
+                  className={`w-full rounded-lg border p-3 text-left transition-colors hover:bg-accent ${selectedMissionId === mission.id ? "border-primary bg-accent" : ""
+                    }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 space-y-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 space-y-1 min-w-0">
                       <p className="truncate text-sm font-medium">{mission.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
                         {mission.target_url}

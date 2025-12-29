@@ -1,0 +1,31 @@
+{
+  "example_missions": [
+    {
+      "name": "E-commerce Product Search",
+      "target_url": "https://example-shop.com",
+      "num_agents": 10,
+      "goal": "Search for 'laptop' and navigate to product details page",
+      "max_duration_seconds": 300,
+      "rate_limit_per_second": 2.0,
+      "initial_system_prompt": "You are a customer looking for a laptop. Use the search functionality and browse product listings."
+    },
+    {
+      "name": "News Site Navigation",
+      "target_url": "https://example-news.com",
+      "num_agents": 5,
+      "goal": "Navigate to the technology section and read headlines",
+      "max_duration_seconds": 180,
+      "rate_limit_per_second": 1.5,
+      "initial_system_prompt": "You are browsing news articles. Focus on finding and reading technology headlines."
+    },
+    {
+      "name": "Contact Form Testing",
+      "target_url": "https://example-contact.com",
+      "num_agents": 3,
+      "goal": "Find and submit the contact form",
+      "max_duration_seconds": 120,
+      "rate_limit_per_second": 0.5,
+      "initial_system_prompt": "You need to contact customer support. Find the contact form and fill it out."
+    }
+  ]
+}

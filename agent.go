@@ -7,10 +7,11 @@ import (
 	"math/rand"
 	"strings"
 	"time"
+	"net/http"
 )
 
-// Agent represents a single testing agent
-type Agent struct {
+// RuntimeAgent represents a single testing agent
+type RuntimeAgent struct {
 	id             string
 	mission        *Mission
 	gemini         GeminiClient
@@ -32,8 +33,8 @@ type Agent struct {
 }
 
 // NewAgent creates a new agent
-func NewAgent(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter, eventBus chan<- Event) *Agent {
-	return &Agent{
+func NewAgent(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter, eventBus chan<- Event) *RuntimeAgent {
+	return &RuntimeAgent{
 		id:          id,
 		mission:     mission,
 		gemini:      gemini,
@@ -49,7 +50,7 @@ func NewAgent(id string, mission *Mission, gemini GeminiClient, httpFactory HTTP
 }
 
 // Run starts the agent's main loop
-func (a *Agent) Run(ctx context.Context) {
+func (a *RuntimeAgent) Run(ctx context.Context) {
 	log.Printf("[Agent %s] Starting mission %s", a.id, a.mission.ID)
 	a.status = "running"
 	a.emitAgentEvent()
@@ -179,7 +180,7 @@ func (a *Agent) Run(ctx context.Context) {
 }
 
 // fetchPage fetches and parses a page
-func (a *Agent) fetchPage(ctx context.Context, client *http.Client, url string) (*StrippedPage, error) {
+func (a *RuntimeAgent) fetchPage(ctx context.Context, client *http.Client, url string) (*StrippedPage, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -202,7 +203,7 @@ func (a *Agent) fetchPage(ctx context.Context, client *http.Client, url string) 
 }
 
 // handleError handles an error
-func (a *Agent) handleError(err error, latency time.Duration, action string) {
+func (a *RuntimeAgent) handleError(err error, latency time.Duration, action string) {
 	a.errorCount++
 	a.consecutiveErrors++
 	a.totalLatencyMS += latency.Milliseconds()
@@ -220,7 +221,7 @@ func (a *Agent) handleError(err error, latency time.Duration, action string) {
 }
 
 // recordAction records a successful action
-func (a *Agent) recordAction(description string, action string, selector string, latency int64, err error) {
+func (a *RuntimeAgent) recordAction(description string, action string, selector string, latency int64, err error) {
 	a.successCount++
 	a.consecutiveErrors = 0
 	a.totalLatencyMS += latency
@@ -241,7 +242,7 @@ func (a *Agent) recordAction(description string, action string, selector string,
 }
 
 // emitAgentEvent emits an agent status event
-func (a *Agent) emitAgentEvent() {
+func (a *RuntimeAgent) emitAgentEvent() {
 	a.eventBus <- Event{
 		Type:      "agent_status",
 		Timestamp: time.Now(),
@@ -254,7 +255,7 @@ func (a *Agent) emitAgentEvent() {
 }
 
 // emitActionLog emits an action log event
-func (a *Agent) emitActionLog(log ActionLog) {
+func (a *RuntimeAgent) emitActionLog(log ActionLog) {
 	a.eventBus <- Event{
 		Type:      "action",
 		Timestamp: log.Timestamp,
@@ -267,7 +268,7 @@ func (a *Agent) emitActionLog(log ActionLog) {
 }
 
 // GetMetrics returns current agent metrics
-func (a *Agent) GetMetrics() Agent {
+func (a *RuntimeAgent) GetMetrics() Agent {
 	return Agent{
 		ID:                a.id,
 		MissionID:         a.mission.ID,

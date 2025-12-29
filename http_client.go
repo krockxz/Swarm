@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/cookiejar"
@@ -71,7 +73,7 @@ type ExecuteActionResult struct {
 
 // ExecuteAction executes an action and returns the resulting HTML
 func (e *ActionExecutor) ExecuteAction(ctx context.Context, action GeminiDecisionResponse, currentURL string) ExecuteActionResult {
-	startTime := time.Now()
+
 
 	switch action.Action {
 	case "click":
@@ -343,9 +345,13 @@ func generateSelectorForNode(node *html.Node) string {
 	}
 	// Simplified - in production you'd match the logic in html_parser.go
 	if node.Parent != nil {
-		for i, sibling := range node.Parent.Child {
-			if sibling == node {
-				return node.Data + ":nth-child(" + fmt.Sprint(i+1) + ")"
+		idx := 1
+		for c := node.Parent.FirstChild; c != nil; c = c.NextSibling {
+			if c == node {
+				return node.Data + ":nth-child(" + fmt.Sprint(idx) + ")"
+			}
+			if c.Type == html.ElementNode {
+				idx++
 			}
 		}
 	}

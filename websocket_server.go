@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"net/http"
 )
 
 // WebSocketUpgrader upgrades HTTP to WebSocket
@@ -92,7 +93,9 @@ func (h *WebSocketHub) broadcast(event Event) {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Printf("[WebSocketHub] Failed to send to client: %v", err)
-			go h.unregister <- conn
+			go func() {
+				h.unregister <- conn
+			}()
 		}
 	}
 }

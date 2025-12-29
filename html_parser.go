@@ -183,10 +183,14 @@ func generateSelector(s *goquery.Selection) string {
 			} else {
 				// Use nth-child if no class or id
 				if n.Parent != nil {
-					for i, sibling := range n.Parent.Child {
-						if sibling == n {
-							part = tag + ":nth-child(" + string(rune('1'+i)) + ")"
+					idx := 1
+					for c := n.Parent.FirstChild; c != nil; c = c.NextSibling {
+						if c == n {
+							part = tag + ":nth-child(" + string(rune('0'+idx)) + ")"
 							break
+						}
+						if c.Type == html.ElementNode {
+							idx++
 						}
 					}
 				}

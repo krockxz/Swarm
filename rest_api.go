@@ -18,7 +18,7 @@ type RESTAPI struct {
 	hub                *WebSocketHub
 	geminiService      *GeminiService
 	rateLimitRegistry  *RateLimiterRegistry
-	agentFactory       func(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter) *Agent
+	agentFactory       func(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter) *RuntimeAgent
 	httpFactory        HTTPClientFactory
 }
 
@@ -28,7 +28,7 @@ func NewRESTAPI(
 	hub *WebSocketHub,
 	geminiService *GeminiService,
 	rateLimitRegistry *RateLimiterRegistry,
-	agentFactory func(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter) *Agent,
+	agentFactory func(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter) *RuntimeAgent,
 	httpFactory HTTPClientFactory,
 ) *RESTAPI {
 	return &RESTAPI{
@@ -179,11 +179,12 @@ func (api *RESTAPI) startMission(mission *Mission) {
 
 		// Store agent reference
 		agentMutex.Lock()
-		mission.AgentMetrics[agentID] = agent
+		initialMetrics := agent.GetMetrics()
+		mission.AgentMetrics[agentID] = &initialMetrics
 		agentMutex.Unlock()
 
 		// Run agent in goroutine
-		go func(a *Agent) {
+		go func(a *RuntimeAgent) {
 			defer wg.Done()
 			a.Run(ctx)
 

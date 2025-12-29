@@ -35,7 +35,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create Gemini client: %v", err)
 	}
-	defer genaiClient.Close()
 
 	log.Println("Gemini client initialized successfully")
 
@@ -51,7 +50,7 @@ func main() {
 	// Initialize components
 	geminiService := NewGeminiService(genaiClient)
 	httpClientFactory := NewHTTPClientFactory
-	agentFactory := func(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter) *Agent {
+	agentFactory := func(id string, mission *Mission, gemini GeminiClient, httpFactory HTTPClientFactory, limiter *RateLimiter) *RuntimeAgent {
 		return NewAgent(id, mission, gemini, httpFactory, limiter, eventBus)
 	}
 
@@ -94,7 +93,7 @@ func main() {
 	// Create server with timeouts
 	server := &http.Server{
 		Addr:         ":8080",
-		Handler:      mux,
+		Handler:      enableCORS(mux),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,

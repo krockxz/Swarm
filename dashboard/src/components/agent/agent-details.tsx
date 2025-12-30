@@ -64,10 +64,10 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
         <CardContent>
           <ScrollArea className="h-[400px]">
             <div className="space-y-2">
-              {agent.action_history.length === 0 ? (
+              {(agent.action_history || []).length === 0 ? (
                 <p className="text-sm text-muted-foreground">No actions yet</p>
               ) : (
-                agent.action_history.map((action, index) => (
+                (agent.action_history || []).map((action, index) => (
                   <div
                     key={index}
                     className="rounded-lg border p-2 text-sm"
@@ -82,7 +82,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
       </Card>
 
       {/* URL History */}
-      {agent.url_history.length > 1 && (
+      {(agent.url_history || []).length > 1 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">URL History</CardTitle>
@@ -90,7 +90,7 @@ export function AgentDetails({ agent }: AgentDetailsProps) {
           <CardContent>
             <ScrollArea className="h-[200px]">
               <div className="space-y-1">
-                {agent.url_history.map((url, index) => (
+                {(agent.url_history || []).map((url, index) => (
                   <div key={index} className="flex gap-2 text-sm">
                     <span className="text-muted-foreground">{index + 1}.</span>
                     <span className="break-all">{url}</span>

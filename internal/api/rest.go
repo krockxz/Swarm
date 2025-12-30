@@ -130,10 +130,18 @@ func (api *RESTAPI) createMission(w http.ResponseWriter, r *http.Request) {
 	missionID := generateMissionID()
 	now := time.Now()
 
+	// Sanitize URL
+	targetURL := req.TargetURL
+	if len(targetURL) > 8 && targetURL[:8] == "https://" && targetURL[8:15] == "https//" {
+		targetURL = "https://" + targetURL[15:]
+	} else if len(targetURL) > 7 && targetURL[:7] == "http://" && targetURL[7:14] == "http//" {
+		targetURL = "http://" + targetURL[14:]
+	}
+
 	mission := &models.Mission{
 		ID:                 missionID,
 		Name:               req.Name,
-		TargetURL:          req.TargetURL,
+		TargetURL:          targetURL,
 		NumAgents:          req.NumAgents,
 		Goal:               req.Goal,
 		MaxDurationSeconds: req.MaxDurationSeconds,

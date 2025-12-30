@@ -10,8 +10,7 @@ import (
 	"swarmtest/internal/models"
 )
 
-// GeminiClient interface
-// Using *models.Agent instead of RuntimeAgent since RuntimeAgent is internal to agent package
+// GeminiClient provides AI-powered decision making for agents
 type GeminiClient interface {
 	DecideNextAction(ctx context.Context, mission *models.Mission, agent *models.Agent, page *models.StrippedPage) (*models.GeminiDecisionResponse, error)
 }

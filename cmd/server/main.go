@@ -8,9 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"google.golang.org/genai"
 	
 	"swarmtest/internal/api"
@@ -53,6 +53,15 @@ func main() {
 		log.Fatal("SUPABASE_DB_URL environment variable is required")
 	}
 
+	// Fix for Supavisor prepared statement issues
+	if !strings.Contains(dbURL, "default_query_exec_mode") {
+		if strings.Contains(dbURL, "?") {
+			dbURL += "&default_query_exec_mode=simple_protocol"
+		} else {
+			dbURL += "?default_query_exec_mode=simple_protocol"
+		}
+	}
+
 	db, err := sql.Open("pgx", dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -66,8 +75,6 @@ func main() {
 
 	missionStore := store.NewSupabaseStore(db)
 	wsHub := api.NewWebSocketHub(eventBus)
-	// rateLimiterRegistry is created internally in NewRESTAPI now, or passed?
-	// In rest.go refactor I made NewRESTAPI create it internally.
 	
 	// Start WebSocket hub
 	go wsHub.Run(ctx)
@@ -125,7 +132,7 @@ func main() {
 
 func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000") // Or "*"
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Max-Age", "86400")
@@ -138,6 +145,3 @@ func enableCORS(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-// dummy var to keep uuid import (if needed during compilation check)
-var _ = uuid.New

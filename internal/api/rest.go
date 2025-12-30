@@ -80,7 +80,42 @@ func (api *RESTAPI) handleMissionDetail(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		json.NewEncoder(w).Encode(mission)
+		// Calculate summary
+		activeAgents := 0
+		for _, agent := range mission.AgentMetrics {
+			if agent.Status == "running" {
+				activeAgents++
+			}
+		}
+
+		total := mission.TotalActions + mission.TotalErrors
+		errorRate := 0.0
+		if total > 0 {
+			errorRate = float64(mission.TotalErrors) / float64(total) * 100
+		}
+
+		agentStates := make([]models.Agent, 0, len(mission.AgentMetrics))
+		for _, a := range mission.AgentMetrics {
+			agentStates = append(agentStates, *a)
+		}
+
+		resp := models.MissionStatusResponse{
+			Mission: mission,
+			AgentStates: agentStates,
+			Summary: &models.SummaryEvent{
+				MissionID:        mission.ID,
+				TotalAgents:      mission.NumAgents,
+				ActiveAgents:     activeAgents,
+				CompletedAgents:  mission.CompletedAgents,
+				FailedAgents:     mission.FailedAgents,
+				TotalActions:     mission.TotalActions,
+				TotalErrors:      mission.TotalErrors,
+				AverageLatencyMS: mission.AverageLatencyMS,
+				ErrorRatePercent: errorRate,
+			},
+		}
+
+		json.NewEncoder(w).Encode(resp)
 		return
 	}
 }
@@ -122,7 +157,9 @@ func (api *RESTAPI) createMission(w http.ResponseWriter, r *http.Request) {
 
 func (api *RESTAPI) listMissions(w http.ResponseWriter, r *http.Request) {
 	missions := api.store.List()
-	json.NewEncoder(w).Encode(missions)
+	json.NewEncoder(w).Encode(map[string][]*models.Mission{
+		"missions": missions,
+	})
 }
 
 func (api *RESTAPI) startMission(mission *models.Mission) {

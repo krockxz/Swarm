@@ -112,6 +112,18 @@ func (a *RuntimeAgent) Run(ctx context.Context) {
 				a.handleError(err, "gemini_decision")
 				continue
 			}
+
+			// Handle terminal actions immediately
+			if decision.Action == "completed" {
+				a.recordAction(*decision, 0, "") // Record the completion
+				a.status = "completed"
+				return
+			}
+			if decision.Action == "failed" {
+				a.recordAction(*decision, 0, "") // Record the failure
+				a.status = "failed"
+				return
+			}
 			
 			// 4. Execute Action
 			result := executor.ExecuteAction(ctx, *decision, a.currentURL)

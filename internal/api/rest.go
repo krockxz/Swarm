@@ -128,7 +128,7 @@ func (api *RESTAPI) createMission(w http.ResponseWriter, r *http.Request) {
 	}
 
 	missionID := generateMissionID()
-	now := time.Now()
+
 
 	// Sanitize URL
 	targetURL := req.TargetURL
@@ -138,18 +138,43 @@ func (api *RESTAPI) createMission(w http.ResponseWriter, r *http.Request) {
 		targetURL = "http://" + targetURL[14:]
 	}
 
+	// Set default execution mode if not specified
+	executionMode := req.ExecutionMode
+	if executionMode == "" {
+		executionMode = models.ExecutionModeHTTP
+	}
+
+	// Validate browser pool is available if browser mode is requested
+	// Validate execution mode
+	if req.ExecutionMode != "" && req.ExecutionMode != models.ExecutionModeHTTP && req.ExecutionMode != models.ExecutionModeBrowser {
+		http.Error(w, "Invalid execution mode", http.StatusBadRequest)
+		return
+	}
+	if req.ExecutionMode == "" {
+		req.ExecutionMode = models.ExecutionModeHTTP
+	}
+	
+	// Check if browser mode is requested but not available
+	if req.ExecutionMode == models.ExecutionModeBrowser && utils.SharedBrowserPool == nil {
+		http.Error(w, "Browser execution mode is not available (Chrome not found on server)", http.StatusBadRequest)
+		return
+	}
+
 	mission := &models.Mission{
-		ID:                 missionID,
-		Name:               req.Name,
-		TargetURL:          targetURL,
-		NumAgents:          req.NumAgents,
-		Goal:               req.Goal,
-		MaxDurationSeconds: req.MaxDurationSeconds,
-		RateLimitPerSecond: req.RateLimitPerSecond,
+		ID:                  "mission-" + uuid.New().String()[:8],
+		Name:                req.Name,
+		TargetURL:           req.TargetURL,
+		NumAgents:           req.NumAgents,
+		Goal:                req.Goal,
+		MaxDurationSeconds:  req.MaxDurationSeconds,
+		RateLimitPerSecond:  req.RateLimitPerSecond,
 		InitialSystemPrompt: req.InitialSystemPrompt,
-		Status:             "created",
-		CreatedAt:          now,
-		AgentMetrics:       make(map[string]*models.Agent),
+		ExecutionMode:       req.ExecutionMode,
+		Status:              "pending",
+		CreatedAt:           time.Now(),
+		TotalActions:        0,
+		TotalErrors:         0,
+		AgentMetrics:        make(map[string]*models.Agent),
 		RecentEvents:       []models.ActionLog{},
 	}
 
@@ -171,8 +196,8 @@ func (api *RESTAPI) listMissions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *RESTAPI) startMission(mission *models.Mission) {
-	log.Printf("Starting mission %s with %d agents", mission.ID, mission.NumAgents)
-	
+	log.Printf("Starting mission %s with %d agents (mode: %s)", mission.ID, mission.NumAgents, mission.ExecutionMode)
+
 	mission.Status = "running"
 	now := time.Now()
 	mission.StartedAt = &now
@@ -180,28 +205,36 @@ func (api *RESTAPI) startMission(mission *models.Mission) {
 
 	// Create rate limiter
 	limiter := api.rateLimits.Get(mission.ID, mission.RateLimitPerSecond)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(mission.MaxDurationSeconds)*time.Second)
 	defer cancel()
 
 	for i := 0; i < mission.NumAgents; i++ {
 		agentID := fmt.Sprintf("%s-agent-%d", mission.ID, i)
+
+		// Create browser executor if in browser mode
+		var browserExecutor *utils.BrowserExecutor
+		if mission.ExecutionMode == models.ExecutionModeBrowser && utils.SharedBrowserPool != nil {
+			browserExecutor = utils.NewBrowserExecutor(utils.SharedBrowserPool)
+		}
+
 		runtimeAgent := agent.NewAgent(
 			agentID,
 			mission,
 			api.gemini,
 			utils.NewHTTPClientFactory,
 			limiter,
-			api.eventBus, 
+			api.eventBus,
+			browserExecutor,
 		)
-		
+
 		// Initialize agent metric in mission
 		mission.AgentMetrics[agentID] = &models.Agent{
 			ID:        agentID,
 			MissionID: mission.ID,
 			Status:    "initialized",
 		}
-		
+
 		go func(a *agent.RuntimeAgent) {
 			a.Run(ctx)
 		}(runtimeAgent)
@@ -209,17 +242,17 @@ func (api *RESTAPI) startMission(mission *models.Mission) {
 
 	// Wait for context done (mission timeout) or completion logic?
 	// For now, we just let agents run until timeout.
-	
+
 	<-ctx.Done()
-	
+
 	log.Printf("Mission %s finished (timeout or completed)", mission.ID)
 	mission.Status = "completed"
 	completedAt := time.Now()
 	mission.CompletedAt = &completedAt
-	
+
 	// Final save
 	api.store.Put(mission)
-	
+
 	// Clean up rate limiter
 	api.rateLimits.Remove(mission.ID)
 }

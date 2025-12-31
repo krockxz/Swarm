@@ -35,9 +35,9 @@ func (s *GeminiService) DecideNextAction(ctx context.Context, mission *models.Mi
 	// MaxOutputTokens is int32 (error said int32).
 	
 	temp := float32(0.2)
-	maxTokens := int32(1024)
+	maxTokens := int32(8192)
 	
-	resp, err := s.client.Models.GenerateContent(ctx, "gemini-2.0-flash-exp", genai.Text(prompt), &genai.GenerateContentConfig{
+	resp, err := s.client.Models.GenerateContent(ctx, "gemini-3-flash-preview", genai.Text(prompt), &genai.GenerateContentConfig{
 		Temperature:     &temp,
 		MaxOutputTokens: maxTokens, 
 		ResponseMIMEType: "application/json", 

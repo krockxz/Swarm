@@ -8,15 +8,18 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"google.golang.org/genai"
-	
+
 	"swarmtest/internal/api"
 	"swarmtest/internal/gemini"
 	"swarmtest/internal/store"
 	"swarmtest/internal/models"
+	"swarmtest/internal/utils"
 )
 
 var (
@@ -46,7 +49,7 @@ func main() {
 
 	// Initialize shared state
 	eventBus := make(chan models.Event, 1000)
-	
+
 	// Database connection
 	dbURL := os.Getenv("SUPABASE_DB_URL")
 	if dbURL == "" {
@@ -67,17 +70,30 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
-	
+
 	if err := db.Ping(); err != nil {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 	log.Println("Connected to Supabase database")
 
+	// Initialize Browser Pool
+	var pool *utils.BrowserPool
+	pool, err = utils.NewBrowserPool(true) // headless=true
+	if err != nil {
+		log.Printf("Warning: Failed to initialize browser pool: %v. Browser execution mode will be unavailable.", err)
+	} else {
+		utils.SharedBrowserPool = pool
+		log.Printf("Browser pool initialized successfully (headless chrome)")
+		defer pool.Close()
+	}
+
 	missionStore := store.NewSupabaseStore(db)
 	wsHub := api.NewWebSocketHub(eventBus)
-	
+
 	// Start WebSocket hub
-	go wsHub.Run(ctx)
+	go wsHub.Run(ctx) 
+
+
 
 	// Initialize Gemini Service
 	geminiService := gemini.NewGeminiService(genaiClient)
@@ -99,7 +115,11 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"status":"healthy","version":"%s","build_time":"%s"}`, version, buildTime)
+		browserMode := "disabled"
+		if utils.SharedBrowserPool != nil {
+			browserMode = "enabled"
+		}
+		fmt.Fprintf(w, `{"status":"healthy","version":"%s","build_time":"%s","browser_mode":"%s"}`, version, buildTime, browserMode)
 	})
 
 	// WebSocket endpoint
@@ -116,6 +136,21 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Handle graceful shutdown
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		<-sigChan
+
+		log.Println("Shutting down server...")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("Server shutdown error: %v", err)
+		}
+	}()
+
 	// Start server
 	log.Printf("SwarmTest server starting on :8080 (version %s)", version)
 	log.Printf("Endpoints:")
@@ -124,10 +159,17 @@ func main() {
 	log.Printf("  GET    /api/missions/{id}   - Get mission status")
 	log.Printf("  GET    /api/health          - Health check")
 	log.Printf("  GET    /ws                  - WebSocket events")
+	browserMode := "disabled"
+	if utils.SharedBrowserPool != nil {
+		browserMode = "enabled"
+	}
+	log.Printf("  Browser Mode:              %s", browserMode)
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server failed: %v", err)
 	}
+
+	log.Println("Server stopped")
 }
 
 func enableCORS(next http.Handler) http.Handler {

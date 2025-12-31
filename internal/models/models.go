@@ -4,20 +4,30 @@ import (
 	"time"
 )
 
+// ExecutionMode defines whether to use HTTP or headless browser
+// ExecutionMode defines how agents interact with the target
+type ExecutionMode string
+
+const (
+	ExecutionModeHTTP    ExecutionMode = "http"
+	ExecutionModeBrowser ExecutionMode = "browser"
+)
+
 // Mission represents a test mission configuration
 type Mission struct {
-	ID                   string    `json:"id"`
-	Name                 string    `json:"name"`
-	TargetURL            string    `json:"target_url"`
-	NumAgents            int       `json:"num_agents"`
-	Goal                 string    `json:"goal"`
-	MaxDurationSeconds   int       `json:"max_duration_seconds"`
-	RateLimitPerSecond   float64   `json:"rate_limit_per_second"`
-	InitialSystemPrompt  string    `json:"initial_system_prompt"`
-	Status               string    `json:"status"`
-	CreatedAt            time.Time `json:"created_at"`
-	StartedAt            *time.Time `json:"started_at,omitempty"`
-	CompletedAt          *time.Time `json:"completed_at,omitempty"`
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	TargetURL            string         `json:"target_url"`
+	NumAgents            int            `json:"num_agents"`
+	Goal                 string         `json:"goal"`
+	MaxDurationSeconds   int            `json:"max_duration_seconds"`
+	RateLimitPerSecond   float64        `json:"rate_limit_per_second"`
+	InitialSystemPrompt  string         `json:"initial_system_prompt"`
+	ExecutionMode        ExecutionMode  `json:"execution_mode"` // http or browser
+	Status               string         `json:"status"`
+	CreatedAt            time.Time      `json:"created_at"`
+	StartedAt            *time.Time     `json:"started_at,omitempty"`
+	CompletedAt          *time.Time     `json:"completed_at,omitempty"`
 
 	// Runtime metrics
 	TotalActions        int                `json:"total_actions"`
@@ -98,13 +108,14 @@ type GeminiDecisionResponse struct {
 
 // CreateMissionRequest is the request body for creating a mission
 type CreateMissionRequest struct {
-	Name                 string  `json:"name"`
-	TargetURL            string  `json:"target_url"`
-	NumAgents            int     `json:"num_agents"`
-	Goal                 string  `json:"goal"`
-	MaxDurationSeconds   int     `json:"max_duration_seconds"`
-	RateLimitPerSecond   float64 `json:"rate_limit_per_second"`
-	InitialSystemPrompt  string  `json:"initial_system_prompt"`
+	Name                 string        `json:"name"`
+	TargetURL            string        `json:"target_url"`
+	NumAgents            int           `json:"num_agents"`
+	Goal                 string        `json:"goal"`
+	MaxDurationSeconds   int           `json:"max_duration_seconds"`
+	RateLimitPerSecond   float64       `json:"rate_limit_per_second"`
+	InitialSystemPrompt  string        `json:"initial_system_prompt"`
+	ExecutionMode        ExecutionMode `json:"execution_mode"` // defaults to "http"
 }
 
 // CreateMissionResponse is the response when creating a mission

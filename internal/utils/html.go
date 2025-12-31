@@ -18,16 +18,31 @@ func NewHTMLParser() *HTMLParser {
 	return &HTMLParser{}
 }
 
-// ParseHTML parses HTML content and returns a StrippedPage
-func (p *HTMLParser) ParseHTML(url string, htmlContent io.Reader) (*models.StrippedPage, error) {
-	doc, err := goquery.NewDocumentFromReader(htmlContent)
+// ParseHTML parses HTML from an io.Reader
+func (p *HTMLParser) ParseHTML(currentURL string, r io.Reader) (*models.StrippedPage, error) {
+	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
 		return nil, err
 	}
+	return p.parseDocument(currentURL, doc)
+}
+
+// ParseHTMLString parses HTML from a string
+func (p *HTMLParser) ParseHTMLString(currentURL string, htmlContent string) (*models.StrippedPage, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
+	if err != nil {
+		return nil, err
+	}
+	return p.parseDocument(currentURL, doc)
+}
+
+func (p *HTMLParser) parseDocument(currentURL string, doc *goquery.Document) (*models.StrippedPage, error) {
+	// Extract basic metadata
+	title := doc.Find("title").Text()
 
 	page := &models.StrippedPage{
-		URL:         url,
-		Title:       doc.Find("title").First().Text(),
+		URL:         currentURL,
+		Title:       title,
 		TextContent: strings.TrimSpace(doc.Find("body").Text()),
 		InteractiveElements: []models.Element{},
 		Timestamp:   time.Now(),

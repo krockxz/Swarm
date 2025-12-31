@@ -20,7 +20,11 @@ type RuntimeAgent struct {
 	httpFactory utils.HTTPClientFactory
 	limiter     *utils.RateLimiter
 	eventBus    chan<- models.Event
-	
+
+	// Browser mode support
+	browserExecutor *utils.BrowserExecutor
+	isBrowserMode   bool
+
 	// State
 	status        string
 	currentURL    string
@@ -41,36 +45,67 @@ func NewAgent(
 	httpFactory utils.HTTPClientFactory,
 	limiter *utils.RateLimiter,
 	eventBus chan<- models.Event,
+	browserExecutor *utils.BrowserExecutor,
 ) *RuntimeAgent {
+	isBrowserMode := mission.ExecutionMode == models.ExecutionModeBrowser
+
 	return &RuntimeAgent{
-		id:            id,
-		mission:       mission,
-		gemini:        gemini,
-		httpFactory:   httpFactory,
-		limiter:       limiter,
-		eventBus:      eventBus,
-		status:        "initialized",
-		currentURL:    mission.TargetURL,
-		actionHistory: make([]string, 0),
-		urlHistory:    make([]string, 0),
+		id:               id,
+		mission:          mission,
+		gemini:           gemini,
+		httpFactory:      httpFactory,
+		limiter:          limiter,
+		eventBus:         eventBus,
+		browserExecutor:  browserExecutor,
+		isBrowserMode:    isBrowserMode,
+		status:           "initialized",
+		currentURL:       mission.TargetURL,
+		actionHistory:    make([]string, 0),
+		urlHistory:       make([]string, 0),
 	}
 }
 
 // Run starts the agent loop
 func (a *RuntimeAgent) Run(ctx context.Context) {
-	log.Printf("[Agent %s] Starting mission: %s", a.id, a.mission.Goal)
+	log.Printf("[Agent %s] Starting mission: %s (mode: %s)", a.id, a.mission.Goal, a.mission.ExecutionMode)
 	a.status = "running"
 	a.urlHistory = append(a.urlHistory, a.currentURL)
 
-	// Create HTTP client
+	// Create HTTP client (always needed for fallback or mixed mode potentially)
 	client := a.httpFactory()
 	
-	// Create executor
-	executor, err := utils.NewActionExecutor(client, a.currentURL)
-	if err != nil {
-		a.handleError(err, "init_executor")
-		a.status = "failed"
-		return
+	// Create executor (only for HTTP mode)
+	var httpExecutor *utils.ActionExecutor
+	var err error
+	
+	if !a.isBrowserMode {
+		httpExecutor, err = utils.NewActionExecutor(client, a.currentURL)
+		if err != nil {
+			a.handleError(err, "init_executor")
+			a.status = "failed"
+			return
+		}
+	} else {
+		// Browser mode: ensure we have an executor
+		if a.browserExecutor == nil {
+			a.handleError(fmt.Errorf("browser executor is nil"), "init_browser")
+			a.status = "failed"
+			return
+		}
+		
+		// Initial navigation
+		result := a.browserExecutor.ExecuteAction(ctx, models.GeminiDecisionResponse{Action: "visit"}, a.currentURL)
+		if result.Error != nil {
+			a.handleError(result.Error, "initial_visit")
+			// Try to continue?
+		} else {
+			log.Printf("[Agent %s] Initial visit successful", a.id)
+		}
+	}
+
+	// Clean up browser tab on exit (AFTER the loop)
+	if a.browserExecutor != nil {
+		defer a.browserExecutor.Close()
 	}
 
 	for {
@@ -87,23 +122,46 @@ func (a *RuntimeAgent) Run(ctx context.Context) {
 			}
 
 			startTime := time.Now()
-
-			// 2. Fetch & Parse Page
-			// Fetch here to give context to Gemini
-			req, _ := http.NewRequestWithContext(ctx, "GET", a.currentURL, nil)
-			req.Header.Set("User-Agent", "SwarmTest/1.0") // Standardize UA
-			resp, err := client.Do(req)
-			if err != nil {
-				a.handleError(err, "fetch_page")
-				continue
-			}
-			defer resp.Body.Close()
 			
-			parser := utils.NewHTMLParser()
-			page, err := parser.ParseHTML(a.currentURL, resp.Body)
-			if err != nil {
-				a.handleError(err, "parse_page")
-				continue
+			var page *models.StrippedPage
+			
+			if a.isBrowserMode {
+				// Get current state from browser
+				htmlContent, urlStr, err := a.browserExecutor.CaptureDOM(ctx)
+				if err != nil {
+					a.handleError(err, "fetch_page_browser")
+					continue
+				}
+				
+				// Update current URL if changed
+				if urlStr != "" && urlStr != a.currentURL {
+					a.currentURL = urlStr
+					a.urlHistory = append(a.urlHistory, a.currentURL)
+				}
+				
+				parser := utils.NewHTMLParser()
+				page, err = parser.ParseHTMLString(a.currentURL, htmlContent)
+				if err != nil {
+					a.handleError(err, "parse_page")
+					continue
+				}
+			} else {
+				// HTTP Mode
+				req, _ := http.NewRequestWithContext(ctx, "GET", a.currentURL, nil)
+				req.Header.Set("User-Agent", "SwarmTest/1.0")
+				resp, err := client.Do(req)
+				if err != nil {
+					a.handleError(err, "fetch_page")
+					continue
+				}
+				defer resp.Body.Close()
+				
+				parser := utils.NewHTMLParser()
+				page, err = parser.ParseHTML(a.currentURL, resp.Body)
+				if err != nil {
+					a.handleError(err, "parse_page")
+					continue
+				}
 			}
 			
 			// 3. Ask Gemini
@@ -115,18 +173,24 @@ func (a *RuntimeAgent) Run(ctx context.Context) {
 
 			// Handle terminal actions immediately
 			if decision.Action == "completed" {
-				a.recordAction(*decision, 0, "") // Record the completion
+				a.recordAction(*decision, 0, "") 
 				a.status = "completed"
 				return
 			}
 			if decision.Action == "failed" {
-				a.recordAction(*decision, 0, "") // Record the failure
+				a.recordAction(*decision, 0, "") 
 				a.status = "failed"
 				return
 			}
 			
 			// 4. Execute Action
-			result := executor.ExecuteAction(ctx, *decision, a.currentURL)
+			var result utils.ExecuteActionResult
+			
+			if a.isBrowserMode {
+				result = a.browserExecutor.ExecuteAction(ctx, *decision, a.currentURL)
+			} else {
+				result = httpExecutor.ExecuteAction(ctx, *decision, a.currentURL)
+			}
 			
 			latency := time.Since(startTime)
 			a.totalLatency += latency
@@ -142,8 +206,10 @@ func (a *RuntimeAgent) Run(ctx context.Context) {
 					a.currentURL = result.NewURL
 					a.urlHistory = append(a.urlHistory, a.currentURL)
 					
-					// Update executor base URL by recreating it
-					executor, _ = utils.NewActionExecutor(client, a.currentURL)
+					// Update executor base URL by recreating it (HTTP only)
+					if !a.isBrowserMode {
+						httpExecutor, _ = utils.NewActionExecutor(client, a.currentURL)
+					}
 				}
 				
 				if decision.Action == "completed" {
@@ -151,6 +217,55 @@ func (a *RuntimeAgent) Run(ctx context.Context) {
 					return
 				}
 			}
+		}
+	}
+}
+
+// executeHTTPAction executes an action using HTTP client
+func (a *RuntimeAgent) executeHTTPAction(decision *models.GeminiDecisionResponse, executor *utils.ActionExecutor, client *http.Client, startTime time.Time) {
+	result := executor.ExecuteAction(context.Background(), *decision, a.currentURL)
+
+	latency := time.Since(startTime)
+
+	if result.Error != nil {
+		a.handleError(result.Error, decision.Action)
+	} else {
+		a.recordAction(*decision, latency.Milliseconds(), result.NewURL)
+
+		// Update URL if changed
+		if result.NewURL != "" && result.NewURL != a.currentURL {
+			a.currentURL = result.NewURL
+			a.urlHistory = append(a.urlHistory, a.currentURL)
+
+			// Update executor base URL by recreating it
+			executor, _ = utils.NewActionExecutor(client, a.currentURL)
+		}
+
+		if decision.Action == "completed" {
+			a.status = "completed"
+		}
+	}
+}
+
+// executeBrowserAction executes an action using the browser
+func (a *RuntimeAgent) executeBrowserAction(decision *models.GeminiDecisionResponse, startTime time.Time) {
+	result := a.browserExecutor.ExecuteAction(context.Background(), *decision, a.currentURL)
+
+	latency := time.Since(startTime)
+
+	if result.Error != nil {
+		a.handleError(result.Error, decision.Action)
+	} else {
+		a.recordAction(*decision, latency.Milliseconds(), result.NewURL)
+
+		// Update URL if changed
+		if result.NewURL != "" && result.NewURL != a.currentURL {
+			a.currentURL = result.NewURL
+			a.urlHistory = append(a.urlHistory, a.currentURL)
+		}
+
+		if decision.Action == "completed" {
+			a.status = "completed"
 		}
 	}
 }

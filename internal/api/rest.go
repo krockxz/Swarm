@@ -37,7 +37,7 @@ func NewRESTAPI(store store.MissionStore, gemini gemini.GeminiClient, eventBus c
 // RegisterRoutes registers routes
 func (api *RESTAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/missions", api.handleMissions)
-	mux.HandleFunc("/api/missions/", api.handleMissionDetail)
+	mux.HandleFunc("/api/missions/", api.handleMissionDetailOrActions)
 }
 
 func (api *RESTAPI) handleMissions(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +62,48 @@ func (api *RESTAPI) handleMissions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+func (api *RESTAPI) handleMissionDetailOrActions(w http.ResponseWriter, r *http.Request) {
+	// CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method == "GET" {
+		missionID := extractMissionID(r.URL.Path)
+		if missionID == "" {
+			http.Error(w, "Invalid mission ID", http.StatusBadRequest)
+			return
+		}
+
+		// Check if it's an action logs request
+		if len(r.URL.Path) > len("/api/missions/"+missionID) && r.URL.Path[len("/api/missions/"+missionID):] == "/actions" {
+			api.handleMissionActionLogs(w, r, missionID)
+			return
+		}
+
+		// Otherwise, it's a mission detail request
+		api.handleMissionDetail(w, r)
+		return
+	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+}
+
+func (api *RESTAPI) handleMissionActionLogs(w http.ResponseWriter, r *http.Request, missionID string) {
+	mission, exists := api.store.Get(missionID)
+	if !exists {
+		http.Error(w, "Mission not found", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(mission.RecentEvents)
 }
 
 func (api *RESTAPI) handleMissionDetail(w http.ResponseWriter, r *http.Request) {
@@ -234,6 +276,9 @@ func (api *RESTAPI) startMission(mission *models.Mission) {
 			MissionID: mission.ID,
 			Status:    "initialized",
 		}
+
+		// Persist agent to database immediately to satisfy foreign key constraint
+		api.store.PutAgent(mission.AgentMetrics[agentID])
 
 		go func(a *agent.RuntimeAgent) {
 			a.Run(ctx)

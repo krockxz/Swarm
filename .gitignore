@@ -35,3 +35,4 @@ Thumbs.db
 # Project specific binaries
 swarmtest
 main
+node_modules

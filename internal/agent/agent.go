@@ -221,54 +221,7 @@ func (a *RuntimeAgent) Run(ctx context.Context) {
 	}
 }
 
-// executeHTTPAction executes an action using HTTP client
-func (a *RuntimeAgent) executeHTTPAction(decision *models.GeminiDecisionResponse, executor *utils.ActionExecutor, client *http.Client, startTime time.Time) {
-	result := executor.ExecuteAction(context.Background(), *decision, a.currentURL)
 
-	latency := time.Since(startTime)
-
-	if result.Error != nil {
-		a.handleError(result.Error, decision.Action)
-	} else {
-		a.recordAction(*decision, latency.Milliseconds(), result.NewURL)
-
-		// Update URL if changed
-		if result.NewURL != "" && result.NewURL != a.currentURL {
-			a.currentURL = result.NewURL
-			a.urlHistory = append(a.urlHistory, a.currentURL)
-
-			// Update executor base URL by recreating it
-			executor, _ = utils.NewActionExecutor(client, a.currentURL)
-		}
-
-		if decision.Action == "completed" {
-			a.status = "completed"
-		}
-	}
-}
-
-// executeBrowserAction executes an action using the browser
-func (a *RuntimeAgent) executeBrowserAction(decision *models.GeminiDecisionResponse, startTime time.Time) {
-	result := a.browserExecutor.ExecuteAction(context.Background(), *decision, a.currentURL)
-
-	latency := time.Since(startTime)
-
-	if result.Error != nil {
-		a.handleError(result.Error, decision.Action)
-	} else {
-		a.recordAction(*decision, latency.Milliseconds(), result.NewURL)
-
-		// Update URL if changed
-		if result.NewURL != "" && result.NewURL != a.currentURL {
-			a.currentURL = result.NewURL
-			a.urlHistory = append(a.urlHistory, a.currentURL)
-		}
-
-		if decision.Action == "completed" {
-			a.status = "completed"
-		}
-	}
-}
 
 // handleError handles an error
 func (a *RuntimeAgent) handleError(err error, action string) {

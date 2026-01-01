@@ -54,15 +54,37 @@ func main() {
 		defer browserPool.Close()
 	}
 
+	// Create dedicated channels for services (Fan-out pattern)
+	wsEventChan := make(chan models.Event, eventBusBuffer)
+	loggerEventChan := make(chan models.Event, eventBusBuffer)
+
+	// Start fan-out broadcaster
+	go func() {
+		for event := range eventBus {
+			// Non-blocking send to avoid one slow consumer blocking the other
+			select {
+			case wsEventChan <- event:
+			default:
+				log.Println("Warning: WebSocket event channel full, dropping event")
+			}
+
+			select {
+			case loggerEventChan <- event:
+			default:
+				log.Println("Warning: Logger event channel full, dropping event")
+			}
+		}
+	}()
+
 	// Initialize services
 	missionStore := store.NewSupabaseStore(db)
-	wsHub := api.NewWebSocketHub(eventBus)
+	wsHub := api.NewWebSocketHub(wsEventChan)
 	geminiService := gemini.NewGeminiService(genaiClient)
 	restAPI := api.NewRESTAPI(missionStore, geminiService, eventBus)
 
 	// Start background services
 	go wsHub.Run(ctx)
-	go services.NewEventLogger(missionStore, eventBus).Run(ctx)
+	go services.NewEventLogger(missionStore, loggerEventChan).Run(ctx)
 	log.Println("EventLogger service started")
 
 	// Setup and start HTTP server

@@ -58,6 +58,7 @@ type Agent struct {
 type ActionLog struct {
 	Timestamp     time.Time `json:"timestamp"`
 	AgentID       string    `json:"agent_id"`
+	MissionID     string    `json:"mission_id"`
 	Action        string    `json:"action"`
 	Selector      string    `json:"selector,omitempty"`
 	Result        string    `json:"result"`

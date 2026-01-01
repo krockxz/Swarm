@@ -67,7 +67,7 @@ func (e *EventLogger) Run(ctx context.Context) {
 // handleEvent processes a single event
 func (e *EventLogger) handleEvent(event models.Event) {
 	switch event.Type {
-	case "agent_action":
+	case "action":
 		e.handleActionEvent(event)
 	case "mission_started":
 		e.handleMissionLifecycleEvent(event, true)
@@ -78,15 +78,24 @@ func (e *EventLogger) handleEvent(event models.Event) {
 
 // handleActionEvent processes agent action events
 func (e *EventLogger) handleActionEvent(event models.Event) {
-	actionLog, ok := event.Data.(models.ActionLog)
+	agentEvent, ok := event.Data.(models.AgentEvent)
 	if !ok {
-		log.Printf("[EventLogger] Invalid action log data: %T", event.Data)
+		log.Printf("[EventLogger] Invalid action event data: %T", event.Data)
 		return
 	}
 
-	missionID := extractMissionID(actionLog.AgentID)
+	if agentEvent.ActionLog == nil {
+		return
+	}
+	actionLog := *agentEvent.ActionLog
+
+	missionID := agentEvent.MissionID
 	if missionID == "" {
-		log.Printf("[EventLogger] Could not extract mission ID from agent ID: %s", actionLog.AgentID)
+		missionID = extractMissionID(agentEvent.AgentID)
+	}
+
+	if missionID == "" {
+		log.Printf("[EventLogger] Could not extract mission ID from agent ID: %s", agentEvent.AgentID)
 		return
 	}
 

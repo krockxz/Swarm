@@ -232,6 +232,7 @@ func (a *RuntimeAgent) handleError(err error, action string) {
 	a.emitEvent(models.ActionLog{
 		Timestamp:    time.Now(),
 		AgentID:      a.id,
+		MissionID:    a.mission.ID,
 		Action:       action,
 		Result:       "failed",
 		ErrorMessage: err.Error(),
@@ -260,6 +261,7 @@ func (a *RuntimeAgent) recordAction(decision models.GeminiDecisionResponse, late
 	a.emitEvent(models.ActionLog{
 		Timestamp: time.Now(),
 		AgentID:   a.id,
+		MissionID: a.mission.ID,
 		Action:    decision.Action,
 		Selector:  decision.Selector,
 		Result:    "success",
@@ -270,11 +272,18 @@ func (a *RuntimeAgent) recordAction(decision models.GeminiDecisionResponse, late
 
 // emitEvent sends an event to the bus
 func (a *RuntimeAgent) emitEvent(logEntry models.ActionLog) {
+	// Wrap in AgentEvent for frontend compatibility
+	agentEvent := models.AgentEvent{
+		AgentID:   a.id,
+		MissionID: a.mission.ID,
+		ActionLog: &logEntry,
+	}
+
 	select {
 	case a.eventBus <- models.Event{
-		Type:      "agent_action",
+		Type:      "action",
 		Timestamp: time.Now(),
-		Data:      logEntry,
+		Data:      agentEvent,
 	}:
 	default:
 		// Drop event if bus is full

@@ -35,4 +35,6 @@ Thumbs.db
 # Project specific binaries
 swarmtest
 main
+server
 node_modules
+.mcp.json

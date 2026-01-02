@@ -73,9 +73,12 @@ export function EventsDisplay({ events, maxEvents = 100 }: EventsDisplayProps) {
                         </div>
                       )}
                       <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(event.timestamp || Date.now()), {
-                          addSuffix: true,
-                        })}
+                        {formatDistanceToNow(
+                          new Date(event.action_log?.timestamp || Date.now()),
+                          {
+                            addSuffix: true,
+                          }
+                        )}
                       </span>
                     </div>
                   </div>

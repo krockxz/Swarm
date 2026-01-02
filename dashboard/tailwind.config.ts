@@ -49,6 +49,56 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        grid: {
+          "0%": { transform: "translateY(-50%)" },
+          "100%": { transform: "translateY(0)" },
+        },
+        marquee: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(calc(-100% - var(--gap)))" },
+        },
+        "marquee-vertical": {
+          from: { transform: "translateY(0)" },
+          to: { transform: "translateY(calc(-100% - var(--gap)))" },
+        },
+        ripple: {
+          "0%": { transform: "scale(1)", opacity: "0.24" },
+          "100%": { transform: "scale(1)", opacity: "0" },
+        },
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        orbit: {
+          "0%": { transform: "rotate(0deg) translateX(var(--radius)) rotate(0deg)" },
+          "100%": { transform: "rotate(360deg) translateX(var(--radius)) rotate(-360deg)" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
+        meteor: {
+          "0%": { transform: "rotate(215deg) translateX(0)", opacity: "1" },
+          "70%": { opacity: "1" },
+          "100%": { transform: "rotate(215deg) translateX(-500px)", opacity: "0" },
+        },
+      },
+      animation: {
+        grid: "grid var(--duration, 15s) linear infinite",
+        marquee: "marquee var(--duration, 40s) linear infinite",
+        "marquee-vertical": "marquee-vertical var(--duration, 40s) linear infinite",
+        ripple: "ripple 4s cubic-bezier(0, 0, 0.2, 1) infinite",
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        orbit: "orbit var(--duration, 20s) linear infinite",
+        shimmer: "shimmer 8s ease-in-out infinite",
+        meteor: "meteor 5s linear infinite",
+      },
     },
   },
   plugins: [],
